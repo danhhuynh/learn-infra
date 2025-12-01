@@ -1,0 +1,17 @@
+# Add this to your .gitignore to prevent committing sensitive data
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+node_modules/
+logs/
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/
+coverage/
+.nyc_output/
+dist/
+build/

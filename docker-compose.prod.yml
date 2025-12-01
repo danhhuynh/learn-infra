@@ -1,0 +1,35 @@
+# Production configuration for AWS deployment
+# This file is used in production and does NOT include a database service
+# The app connects to AWS Aurora database
+version: '3.8'
+
+services:
+  app:
+    # Use the image from GitHub Container Registry instead of building locally
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-nodeapp}
+    networks:
+      - app-network
+    # Add memory limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    # Production-specific logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Remove mysql service and volumes that are not needed in production
+volumes: {}
