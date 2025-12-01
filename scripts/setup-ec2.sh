@@ -7,17 +7,59 @@ set -e
 
 echo "🚀 Setting up EC2 instance for Node.js app deployment..."
 
+# Detect OS and set package manager
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$NAME
+    VERSION_ID=$VERSION_ID
+fi
+
+# Determine package manager and commands
+if [[ "$OS" == *"Amazon Linux"* ]]; then
+    PKG_MANAGER="yum"
+    UPDATE_CMD="sudo yum update -y"
+    INSTALL_CMD="sudo yum install -y"
+    USER_HOME="/home/ec2-user"
+    SERVICE_USER="ec2-user"
+    echo "📋 Detected: Amazon Linux"
+elif [[ "$OS" == *"Ubuntu"* ]] || [[ "$OS" == *"Debian"* ]]; then
+    PKG_MANAGER="apt"
+    UPDATE_CMD="sudo apt update && sudo apt upgrade -y"
+    INSTALL_CMD="sudo apt install -y"
+    USER_HOME="/home/ubuntu"
+    SERVICE_USER="ubuntu"
+    echo "📋 Detected: $OS"
+elif [[ "$OS" == *"CentOS"* ]] || [[ "$OS" == *"Red Hat"* ]]; then
+    PKG_MANAGER="yum"
+    UPDATE_CMD="sudo yum update -y"
+    INSTALL_CMD="sudo yum install -y"
+    USER_HOME="/home/centos"
+    SERVICE_USER="centos"
+    echo "📋 Detected: $OS"
+else
+    echo "❌ Unsupported OS: $OS"
+    exit 1
+fi
+
 # Update system packages
 echo "📦 Updating system packages..."
-sudo apt update && sudo apt upgrade -y
+eval $UPDATE_CMD
 
 # Install Docker
 echo "🐳 Installing Docker..."
 if ! command -v docker &> /dev/null; then
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
+    if [[ "$PKG_MANAGER" == "yum" ]]; then
+        # Amazon Linux / CentOS / RHEL
+        $INSTALL_CMD docker
+        sudo systemctl start docker
+        sudo systemctl enable docker
+    else
+        # Ubuntu / Debian - use official Docker script
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        rm get-docker.sh
+    fi
     sudo usermod -aG docker $USER
-    rm get-docker.sh
     echo "✅ Docker installed successfully"
 else
     echo "✅ Docker already installed"
@@ -40,7 +82,7 @@ cd ~/app
 
 # Create systemd service for auto-start (optional)
 echo "⚙️ Creating systemd service..."
-sudo tee /etc/systemd/system/nodeapp.service > /dev/null << 'EOF'
+sudo tee /etc/systemd/system/nodeapp.service > /dev/null << EOF
 [Unit]
 Description=Node.js MySQL App
 Requires=docker.service
@@ -49,11 +91,11 @@ After=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/home/ubuntu/app
+WorkingDirectory=$USER_HOME/app
 ExecStart=/usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ExecStop=/usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
-User=ubuntu
-Group=ubuntu
+User=$SERVICE_USER
+Group=$SERVICE_USER
 
 [Install]
 WantedBy=multi-user.target
@@ -65,7 +107,11 @@ sudo systemctl enable nodeapp.service
 
 # Install useful monitoring tools
 echo "📊 Installing monitoring tools..."
-sudo apt install -y htop curl wget git
+if [[ "$PKG_MANAGER" == "yum" ]]; then
+    $INSTALL_CMD htop curl wget git
+else
+    $INSTALL_CMD htop curl wget git
+fi
 
 # Configure log rotation for Docker
 echo "📝 Configuring log rotation..."
