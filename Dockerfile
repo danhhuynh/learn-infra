@@ -5,7 +5,7 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install all dependencies (we'll filter in production stage)
 RUN npm ci && npm cache clean --force
@@ -24,7 +24,7 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install only production dependencies
 RUN npm ci --omit=dev && npm cache clean --force
