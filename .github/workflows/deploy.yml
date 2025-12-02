@@ -112,17 +112,28 @@ jobs:
             # Navigate to app directory
             cd ~/app
             
+            # Check if Docker and Docker Compose are available
+            if ! command -v docker &> /dev/null; then
+              echo "❌ Docker is not installed. Please run the setup script first."
+              exit 1
+            fi
+            
+            if ! command -v docker-compose &> /dev/null; then
+              echo "❌ Docker Compose is not installed. Please run the setup script first."
+              exit 1
+            fi
+            
             # Login to GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull the latest image
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
             
             # Stop existing containers
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
             
             # Start new containers
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
             
             # Clean up old images
             docker image prune -f
@@ -131,16 +142,16 @@ jobs:
             sleep 30
             
             # Check if application is running
-            if ! docker compose -f docker-compose.yml -f docker-compose.prod.yml ps | grep -q "Up"; then
+            if ! docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps | grep -q "Up"; then
               echo "Deployment failed - container not running"
-              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs
+              docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs
               exit 1
             fi
             
             # Test health endpoint
             if ! curl -f http://localhost:3000/health; then
               echo "Deployment failed - health check failed"
-              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs
+              docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs
               exit 1
             fi
             
