@@ -108,7 +108,16 @@ sudo systemctl enable nodeapp.service
 # Install useful monitoring tools
 echo "📊 Installing monitoring tools..."
 if [[ "$PKG_MANAGER" == "yum" ]]; then
-    $INSTALL_CMD htop curl wget git
+    # Amazon Linux specific - handle curl conflict and skip packages that are already available
+    echo "Installing tools for Amazon Linux..."
+    $INSTALL_CMD htop git 2>/dev/null || echo "Some packages may already be installed"
+    # curl and wget are usually pre-installed on Amazon Linux, skip if conflict
+    if ! command -v curl &> /dev/null; then
+        $INSTALL_CMD curl || echo "curl installation skipped due to conflicts"
+    fi
+    if ! command -v wget &> /dev/null; then
+        $INSTALL_CMD wget || echo "wget installation skipped - may already be installed"
+    fi
 else
     $INSTALL_CMD htop curl wget git
 fi
